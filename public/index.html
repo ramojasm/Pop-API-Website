@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pop Figure Collection</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202132;
+      --muted: #6b6d7f;
+      --line: #e8e8f0;
+      --surface: #fff;
+      --background: #f7f6fb;
+      --purple: #6d4aff;
+      --purple-dark: #5235d3;
+      --danger: #c62850;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--background); }
+    header {
+      color: white;
+      background: linear-gradient(120deg, #261c5b, #744bff);
+      padding: 48px max(24px, calc((100% - 1120px) / 2));
+    }
+    header p { margin: 8px 0 0; color: #e5ddff; }
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: 0; font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.05em; }
+    main { width: min(1120px, calc(100% - 48px)); margin: 28px auto 64px; }
+    .layout { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: start; }
+    .panel { display: none; }
+    .panel, .figure-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 8px 28px #2720400d; }
+    .panel { padding: 24px; }
+    .panel h2 { font-size: 1.15rem; }
+    .figure-card { cursor: pointer; }
+    .figure-card.expanded { border-color: var(--purple); }
+    label { display: block; margin: 16px 0 7px; color: var(--muted); font-size: .85rem; font-weight: 700; }
+    input { width: 100%; padding: 11px 12px; border: 1px solid #d8d8e5; border-radius: 9px; color: var(--ink); font: inherit; }
+    input:focus { outline: 3px solid #6d4aff33; border-color: var(--purple); }
+    button { border: 0; border-radius: 9px; padding: 11px 16px; color: white; background: var(--purple); font: inherit; font-weight: 700; cursor: pointer; }
+    button:hover { background: var(--purple-dark); }
+    button:disabled { cursor: wait; opacity: .6; }
+    .submit { width: 100%; margin-top: 22px; }
+    .status { min-height: 22px; margin: 14px 0 0; color: var(--muted); font-size: .9rem; }
+    .status.error { color: var(--danger); }
+    .collection-head { display: flex; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .collection-head h2 { margin: 0; }
+    .search { max-width: 290px; }
+    #count { color: var(--muted); font-size: .9rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 14px; }
+    .figure-card { padding: 18px; }
+    .figure-image { display: block; width: 100%; height: 190px; object-fit: contain; margin-bottom: 14px; border-radius: 10px; background: #f7f6fb; }
+    .number { color: var(--purple); font-size: .8rem; font-weight: 800; letter-spacing: .08em; }
+    .figure-card h3 { margin: 8px 0 14px; font-size: 1.05rem; }
+    .details { display: grid; gap: 6px; margin: 0; color: var(--muted); font-size: .9rem; }
+    .details div { display: flex; justify-content: space-between; gap: 12px; }
+    .details dt { font-weight: 600; }
+    .details dd { margin: 0; text-align: right; }
+    .delete { width: 100%; margin-top: 18px; color: var(--danger); background: #fff0f3; }
+    .delete:hover { background: #ffe0e8; }
+    .modal-backdrop { display: none; position: fixed; inset: 0; z-index: 10; padding: 32px; background: #20213266; place-items: center; }
+    .modal-backdrop.open { display: grid; }
+    .modal { position: relative; display: grid; grid-template-columns: minmax(240px, 1fr) minmax(280px, 1.2fr); gap: 32px; width: min(940px, 100%); max-height: calc(100vh - 64px); overflow: auto; padding: 28px; background: var(--surface); border-radius: 18px; box-shadow: 0 20px 70px #20213255; }
+    .modal-image { width: 100%; height: 390px; object-fit: contain; border-radius: 14px; background: var(--background); }
+    .modal-info { display: flex; flex-direction: column; justify-content: center; }
+    .modal-info h2 { margin: 8px 0 20px; }
+    .modal-details { margin-bottom: 20px; }
+    .modal-actions { display: grid; gap: 12px; margin-top: 20px; }
+    .edit-button { color: var(--ink); background: #ddd; }
+    .save-button { color: var(--ink); background: #b8f2be; }
+    .close-button { position: absolute; top: 16px; right: 20px; padding: 4px 10px; color: var(--muted); background: transparent; font-size: 1.5rem; }
+    .empty { grid-column: 1 / -1; padding: 36px; border: 1px dashed #c9c8d6; border-radius: 14px; color: var(--muted); text-align: center; }
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: 1fr; }
+      .collection-head { align-items: stretch; flex-direction: column; }
+      .search { max-width: none; }
+      .modal-backdrop { padding: 16px; }
+      .modal { grid-template-columns: 1fr; gap: 18px; padding: 20px; }
+      .modal-image { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Pop Figure Collection</h1>
+    <p>Browse and manage your collection in one place.</p>
+  </header>
+  <main>
+    <div class="layout">
+      <section class="panel" aria-labelledby="add-title">
+        <h2 id="add-title">Add a figure</h2>
+        <form id="add-form">
+          <label for="pop-number">Pop number</label>
+          <input id="pop-number" name="popNumber" inputmode="numeric" pattern="[0-9]+" required>
+          <label for="name">Name</label>
+          <input id="name" name="name" required>
+          <label for="year">Release year</label>
+          <input id="year" name="releaseYear" type="number" min="1900" required>
+          <label for="category">Category</label>
+          <input id="category" name="category" placeholder="Marvel, Disney..." required>
+          <label for="franchise">Franchise</label>
+          <input id="franchise" name="franchise" required>
+          <label for="image-url">Image URL</label>
+          <input id="image-url" name="imageUrl" type="url" placeholder="https://..." >
+          <label for="retail-price">Retail price</label>
+          <input id="retail-price" name="retailPrice" type="number" min="0" step="0.01" placeholder="29.99">
+          <label for="resale-price">Resale price</label>
+          <input id="resale-price" name="resalePrice" type="number" min="0" step="0.01" placeholder="45.00">
+          <button class="submit" type="submit">Add to collection</button>
+          <p id="form-status" class="status" role="status"></p>
+        </form>
+      </section>
+
+      <section aria-labelledby="collection-title">
+        <div class="collection-head">
+          <div>
+            <h2 id="collection-title">Your collection</h2>
+            <span id="count"></span>
+          </div>
+          <input class="search" id="search" type="search" placeholder="Search figures..." aria-label="Search figures">
+        </div>
+        <div id="figures" class="grid" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+  <div id="figure-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <article class="modal">
+      <button id="close-modal" class="close-button" type="button" aria-label="Close">×</button>
+      <img id="modal-image" class="modal-image" alt="">
+      <div class="modal-info">
+        <div id="modal-number" class="number"></div>
+        <h2 id="modal-title"></h2>
+        <dl class="details modal-details">
+          <div><dt>Category</dt><dd id="modal-category"></dd></div>
+          <div><dt>Franchise</dt><dd id="modal-franchise"></dd></div>
+          <div><dt>Released</dt><dd id="modal-year"></dd></div>
+        </dl>
+        <label for="modal-image-url">Image URL</label>
+        <input id="modal-image-url" type="url" placeholder="https://..." disabled>
+        <label for="modal-retail-price">Retail price</label>
+        <input id="modal-retail-price" type="number" min="0" step="0.01" placeholder="29.99" disabled>
+        <label for="modal-resale-price">Resale price</label>
+        <input id="modal-resale-price" type="number" min="0" step="0.01" placeholder="45.00" disabled>
+        <div class="modal-actions">
+          <button id="edit-figure" class="edit-button" type="button">Edit</button>
+          <button id="save-figure" class="save-button" type="button" hidden>Save</button>
+          <button id="delete-figure" class="delete" type="button">Delete</button>
+        </div>
+        <p id="modal-status" class="status" role="status"></p>
+      </div>
+    </article>
+  </div>
+  <script>
+    const figuresElement = document.querySelector("#figures");
+    const countElement = document.querySelector("#count");
+    const searchElement = document.querySelector("#search");
+    const form = document.querySelector("#add-form");
+    const formStatus = document.querySelector("#form-status");
+    const modal = document.querySelector("#figure-modal");
+    const modalImage = document.querySelector("#modal-image");
+    const modalNumber = document.querySelector("#modal-number");
+    const modalTitle = document.querySelector("#modal-title");
+    const modalCategory = document.querySelector("#modal-category");
+    const modalFranchise = document.querySelector("#modal-franchise");
+    const modalYear = document.querySelector("#modal-year");
+    const modalInputs = [...modal.querySelectorAll("input")];
+    const editButton = document.querySelector("#edit-figure");
+    const saveButton = document.querySelector("#save-figure");
+    const deleteButton = document.querySelector("#delete-figure");
+    const closeButton = document.querySelector("#close-modal");
+    const modalStatus = document.querySelector("#modal-status");
+    let selectedFigure = null;
+    const apiBase = "./";
+    let figures = [];
+
+    async function request(url, options) {
+      let response;
+      try {
+        response = await fetch(`${apiBase}${url}`, options);
+      } catch {
+        throw new Error("Cannot connect to the API. In the project folder, run `npm start`, then refresh this page.");
+      }
+      const contentType = response.headers.get("content-type") || "";
+      const body = response.status === 204
+        ? null
+        : contentType.includes("application/json")
+          ? await response.json()
+          : null;
+      if (!body && response.status !== 204) {
+        throw new Error("The API server is not running. Start it with: npm start");
+      }
+      if (!response.ok) throw new Error(body?.error || "Something went wrong.");
+      return body;
+    }
+
+    function render() {
+      const query = searchElement.value.trim().toLowerCase();
+      const filtered = figures.filter((figure) =>
+        [figure.popNumber, figure.name, figure.category, figure.franchise]
+          .some((value) => String(value).toLowerCase().includes(query)));
+      countElement.textContent = `${filtered.length} figure${filtered.length === 1 ? "" : "s"}`;
+      figuresElement.replaceChildren();
+      if (!filtered.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = query ? "No figures match your search." : "Your collection is empty.";
+        figuresElement.append(empty);
+        return;
+      }
+      filtered.forEach((figure) => {
+        const card = document.createElement("article");
+        card.className = "figure-card";
+        card.dataset.popNumber = figure.popNumber;
+        card.innerHTML = `
+          ${figure.imageUrl ? `<img class="figure-image" src="${escapeHtml(figure.imageUrl)}" alt="${escapeHtml(figure.name)}">` : ""}
+          <div class="number">POP #${escapeHtml(figure.popNumber)}</div>
+          <h3>${escapeHtml(figure.name)}</h3>
+          <dl class="details">
+            <div><dt>Category</dt><dd>${escapeHtml(figure.category)}</dd></div>
+            <div><dt>Franchise</dt><dd>${escapeHtml(figure.franchise)}</dd></div>
+            <div><dt>Released</dt><dd>${figure.releaseYear}${figure.releaseYearEstimated ? "*" : ""}</dd></div>
+          </dl>
+          </div>`;
+        figuresElement.append(card);
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[character]));
+    }
+
+    async function loadFigures() {
+      try {
+        const response = await fetch("./data/figures.json");
+        if (!response.ok) throw new Error("Could not load the figure collection.");
+        figures = await response.json();
+        render();
+      } catch (error) {
+        figuresElement.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      formStatus.className = "status";
+      formStatus.textContent = "Adding...";
+      const data = Object.fromEntries(new FormData(form));
+      data.releaseYear = Number(data.releaseYear);
+      for (const field of ["retailPrice", "resalePrice"]) {
+        if (data[field] === "") delete data[field];
+        else if (data[field] !== undefined) data[field] = Number(data[field]);
+      }
+      try {
+        const existingFigure = figures.find((figure) => figure.popNumber === data.popNumber);
+        const result = await request(existingFigure
+          ? `/figures/${encodeURIComponent(data.popNumber)}`
+          : "/figures", {
+          method: existingFigure ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        form.reset();
+        formStatus.textContent = result.githubWarning || (existingFigure
+          ? "Image updated."
+          : "Added to your collection.");
+        await loadFigures();
+      } catch (error) {
+        formStatus.className = "status error";
+        formStatus.textContent = error.message;
+      }
+    });
+
+    figuresElement.addEventListener("click", async (event) => {
+      const card = event.target.closest(".figure-card");
+      if (!card) return;
+      openModal(figures.find((figure) => figure.popNumber === card.dataset.popNumber));
+    });
+
+    function openModal(figure) {
+      selectedFigure = figure;
+      modalNumber.textContent = `POP #${figure.popNumber}`;
+      modalTitle.textContent = figure.name;
+      modalCategory.textContent = figure.category;
+      modalFranchise.textContent = figure.franchise;
+      modalYear.textContent = `${figure.releaseYear}${figure.releaseYearEstimated ? "*" : ""}`;
+      modalImage.src = figure.imageUrl || "";
+      modalImage.alt = figure.name;
+      modalImage.hidden = !figure.imageUrl;
+      modalInputs[0].value = figure.imageUrl || "";
+      modalInputs[1].value = figure.retailPrice ?? "";
+      modalInputs[2].value = figure.resalePrice ?? "";
+      setEditing(false);
+      modalStatus.textContent = "";
+      deleteButton.hidden = true;
+      editButton.hidden = true;
+      saveButton.hidden = true;
+      modal.classList.add("open");
+    }
+
+    function setEditing(editing) {
+      modalInputs.forEach((input) => { input.disabled = !editing; });
+      editButton.hidden = editing;
+      saveButton.hidden = !editing;
+    }
+
+    editButton.addEventListener("click", () => setEditing(true));
+    closeButton.addEventListener("click", () => modal.classList.remove("open"));
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) modal.classList.remove("open");
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") modal.classList.remove("open");
+    });
+    saveButton.addEventListener("click", async () => {
+      const data = { imageUrl: modalInputs[0].value };
+      for (const [field, index] of [["retailPrice", 1], ["resalePrice", 2]]) {
+        data[field] = modalInputs[index].value === "" ? undefined : Number(modalInputs[index].value);
+      }
+      modalStatus.className = "status";
+      modalStatus.textContent = "Saving...";
+      saveButton.disabled = true;
+      try {
+        const updated = await request(`/figures/${encodeURIComponent(selectedFigure.popNumber)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        await loadFigures();
+        selectedFigure = figures.find((figure) => figure.popNumber === updated.popNumber) || updated;
+        modalImage.src = selectedFigure.imageUrl || "";
+        modalImage.alt = selectedFigure.name;
+        modalImage.hidden = !selectedFigure.imageUrl;
+        modalInputs[0].value = selectedFigure.imageUrl || "";
+        setEditing(false);
+        modalStatus.textContent = "Saved.";
+      } catch (error) {
+        modalStatus.className = "status error";
+        modalStatus.textContent = error.message;
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
+    deleteButton.addEventListener("click", async () => {
+      if (!window.confirm(`Delete "${selectedFigure.name}" from your collection?`)) return;
+      deleteButton.disabled = true;
+      try {
+        await request(`/figures/${encodeURIComponent(selectedFigure.popNumber)}`, { method: "DELETE" });
+        modal.classList.remove("open");
+        await loadFigures();
+      } catch (error) {
+        modalStatus.className = "status error";
+        modalStatus.textContent = error.message;
+        deleteButton.disabled = false;
+      }
+    });
+
+    searchElement.addEventListener("input", render);
+    loadFigures();
+  </script>
+</body>
+</html>
