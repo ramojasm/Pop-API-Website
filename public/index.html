@@ -29,8 +29,7 @@
     h1, h2, p { margin-top: 0; }
     h1 { margin-bottom: 0; font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.05em; }
     main { width: min(1120px, calc(100% - 48px)); margin: 28px auto 64px; }
-    .layout { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: start; }
-    .panel { display: none; }
+    .layout { display: grid; grid-template-columns: 330px 1fr; gap: 24px; align-items: start; }
     .panel, .figure-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 8px 28px #2720400d; }
     .panel { padding: 24px; }
     .panel h2 { font-size: 1.15rem; }
@@ -172,7 +171,7 @@
     const closeButton = document.querySelector("#close-modal");
     const modalStatus = document.querySelector("#modal-status");
     let selectedFigure = null;
-    const apiBase = "./";
+    const apiBase = "https://pop-api-website.onrender.com";
     let figures = [];
 
     async function request(url, options) {
@@ -235,9 +234,8 @@
 
     async function loadFigures() {
       try {
-        const response = await fetch("./data/figures.json");
-        if (!response.ok) throw new Error("Could not load the figure collection.");
-        figures = await response.json();
+        const result = await request("/figures?limit=100");
+        figures = result.data;
         render();
       } catch (error) {
         figuresElement.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
@@ -295,9 +293,6 @@
       modalInputs[2].value = figure.resalePrice ?? "";
       setEditing(false);
       modalStatus.textContent = "";
-      deleteButton.hidden = true;
-      editButton.hidden = true;
-      saveButton.hidden = true;
       modal.classList.add("open");
     }
 
